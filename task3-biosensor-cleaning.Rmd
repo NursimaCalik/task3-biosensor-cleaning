@@ -1,0 +1,75 @@
+---
+title: "task3-biosensor-cleaning"
+author: "Nursima Çalık"
+date: "2026-09-30"
+output: html_document
+---
+
+## Upload the Data
+```{r}
+electrode <- read.csv("Data/electrodes.csv")
+measurements <- read.csv("Data/measurements.csv")
+```
+
+# Examine the Data and Make Corrections  
+```{r}
+library(dplyr)
+library(stringr)
+
+dim(electrode)
+str(electrode)
+head(electrode)
+anyNA(electrode)
+duplicated(electrode$electrode_id)
+sum(duplicated(electrode$electrode_id))
+no_dup_electrodes <- electrode %>%
+                        distinct()
+sort_electrodes <- no_dup_electrodes[order(no_dup_electrodes$electrode_id), ]
+sort_electrodes <- sort_electrodes %>% mutate(storage_days = str_remove_all(storage_days, "days"))
+sort_electrodes <- sort_electrodes %>% mutate(coating = str_squish(coating))
+sort_electrodes <- sort_electrodes %>% mutate(coating = str_to_title(coating))
+sort_electrodes <- sort_electrodes %>% mutate(use_status = str_squish(use_status))
+sort_electrodes <- sort_electrodes %>% mutate(use_status = str_to_title(use_status))
+
+dim(measurements)
+str(measurements)
+head(measurements)
+anyNA(measurements)
+duplicated(measurements$electrode_id)
+sum(duplicated(measurements$electrode_id))
+no_dup_measurements <- measurements %>% 
+                        distinct()
+no_dup_measurements <- no_dup_measurements %>% mutate(electrode_id = str_squish(electrode_id))
+no_dup_measurements <- no_dup_measurements %>% mutate(unit = str_squish(unit))
+no_dup_measurements <- no_dup_measurements %>% mutate(electrode_id = str_to_title(electrode_id))
+
+sort_measurements <- no_dup_measurements[order(no_dup_measurements$electrode_id), ]
+sort_measurements <- sort_measurements %>% mutate(response = str_remove_all(response, "uA"))
+sort_measurements <- sort_measurements %>% mutate(unit = str_remove_all(unit, "nA"))
+sort_measurements <- sort_measurements %>% mutate(unit = gsub("NA bps", "uA", unit ))
+sort_measurements$unit <- sub("^$", "uA", sort_measurements$unit)
+sort_measurements <- sort_measurements %>% mutate(response = ifelse(as.numeric(response) > 1000,
+                                                                    as.character(as.numeric(response)/1000),
+                                                                    response))
+```
+
+## Merge the 2 Data and Examine Combination Data
+```{r}
+base::nrow(sort_electrodes)
+base::nrow(sort_measurements)
+
+base::names(sort_electrodes)
+base::names(sort_measurements)
+
+base::length(base::unique(sort_electrodes$electrode_id))
+base::length(base::unique(sort_measurements$electrode_id))
+             
+combination_data <- dplyr::full_join(x=sort_electrodes , y= sort_measurements, by = "electrode_id") 
+
+duplicated(combination_data$electrode_id)
+sum(duplicated(combination_data$electrode_id))
+combination_data <- combination_data %>%
+                         distinct()
+```
+
+
