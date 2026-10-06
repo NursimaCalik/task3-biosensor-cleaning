@@ -15,6 +15,7 @@ measurements <- read.csv("Data/measurements.csv")
 ```{r}
 library(dplyr)
 library(stringr)
+library(tidyverse)
 
 dim(electrode)
 str(electrode)
@@ -46,7 +47,6 @@ no_dup_measurements <- no_dup_measurements %>% mutate(electrode_id = str_to_titl
 sort_measurements <- no_dup_measurements[order(no_dup_measurements$electrode_id), ]
 sort_measurements <- sort_measurements %>% mutate(response = str_remove_all(response, "uA"))
 sort_measurements <- sort_measurements %>% mutate(unit = str_remove_all(unit, "nA"))
-sort_measurements <- sort_measurements %>% mutate(unit = gsub("NA bps", "uA", unit ))
 sort_measurements$unit <- sub("^$", "uA", sort_measurements$unit)
 sort_measurements <- sort_measurements %>% mutate(response = ifelse(as.numeric(response) > 1000,
                                                                     as.character(as.numeric(response)/1000),
@@ -70,6 +70,53 @@ duplicated(combination_data$electrode_id)
 sum(duplicated(combination_data$electrode_id))
 combination_data <- combination_data %>%
                          distinct()
+sort_measurements$response %in% measurements$response
+combination_data[[7]][[2]] <- 10.8
+
+
 ```
+
+## Indicate the Problems
+```{r}
+combination_data <- combination_data %>% mutate(problem_flag = if_else(coating == "?"|
+                                                  is.na(coating)|
+                                                  is.na(storage_days) |
+                                                  storage_days == "unknown"|
+                                                  is.na(fabrication_batch)|
+                                                  fabrication_batch == ""|
+                                                  is.na(use_status)|
+                                                  is.na(glucose_mmol_L)|
+                                                  is.na(response)|
+                                                  unit=="?"|
+                                                  storage_days == -2|  
+                                                  is.na(unit), "Problem", "No problem"))
+                                                 
+```
+
+## Create Separate Table 
+```{r}
+clarification <- filter(combination_data, problem_flag == "Problem")
+clarification <- clarification %>% mutate(clarifications = case_when(is.na(coating) ~ "This sample has missing values and is not visible at electrode dataset", coating == "?" ~ "Coating condition is not known", is.na(storage_days)~ "This sample has missing value at storage day", storage_days == "unknown"~ "This sample has unknown value at storage day", storage_days == "-2" ~ "This sample has unvaluable storage day condition", fabrication_batch== "" ~ "This sample has empty value at fabrication batch", is.na(glucose_mmol_L) ~ "This sample has missing values and is not visible at measurement dataset", is.na(response) ~ "This  sample has missing value at response", unit == "?"~ "Unit condition is  not known", is.na(unit)~ "This sample has missing value and is not visible at measurements dataset")) 
+```
+
+## Create Table for Final Plot
+```{r}
+combination_data$coating <- replace(combination_data$coating, combination_data$coating == "Standrad", "Standard")
+combination_data$coating <- replace(combination_data$coating, combination_data$coating == "Modifed", "Modified")
+final_data <- combination_data %>% select(electrode_id, coating, storage_days, fabrication_batch, use_status, glucose_mmol_L, response, unit) %>%
+                                   filter(coating == "Standard"|
+                                          coating ==  "Modified",
+                                          use_status == "Include",
+                                          unit == "uA",
+                                          response >= 0 )
+
+```
+
+
+
+
+
+
+
 
 
